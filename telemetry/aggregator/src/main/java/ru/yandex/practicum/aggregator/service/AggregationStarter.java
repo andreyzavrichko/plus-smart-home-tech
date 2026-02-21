@@ -16,7 +16,6 @@ import ru.yandex.practicum.kafka.telemetry.event.SensorEventAvro;
 import ru.yandex.practicum.kafka.telemetry.event.SensorStateAvro;
 import ru.yandex.practicum.kafka.telemetry.event.SensorsSnapshotAvro;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -27,20 +26,19 @@ public class AggregationStarter {
     private static final Logger log = LoggerFactory.getLogger(AggregationStarter.class);
 
     private final KafkaConsumer<String, SensorEventAvro> consumer;
-    private final KafkaProducer<byte[], byte[]> producer;
+    private final KafkaProducer<String, SensorsSnapshotAvro> producer;
     private final AggregatorKafkaProperties kafkaProperties;
 
     private final Map<String, SensorsSnapshotAvro> snapshots = new HashMap<>();
 
     public AggregationStarter(
             KafkaConsumer<String, SensorEventAvro> consumer,
-            KafkaProducer<byte[], byte[]> producer,
+            KafkaProducer<String, SensorsSnapshotAvro> producer,
             AggregatorKafkaProperties kafkaProperties) {
         this.consumer = consumer;
         this.producer = producer;
         this.kafkaProperties = kafkaProperties;
     }
-
 
     public void start() {
         try {
@@ -48,7 +46,6 @@ public class AggregationStarter {
 
             consumer.subscribe(Collections.singletonList(kafkaProperties.getSensorsTopic()));
             log.info("Subscribed to topic: {}", kafkaProperties.getSensorsTopic());
-
 
             while (true) {
                 ConsumerRecords<String, SensorEventAvro> records = consumer.poll(Duration.ofMillis(1000));
@@ -59,20 +56,15 @@ public class AggregationStarter {
 
                 log.debug("Received {} records", records.count());
 
-
                 for (ConsumerRecord<String, SensorEventAvro> record : records) {
                     handleSensorEvent(record.value());
-                }
 
+                    TopicPartition partition = new TopicPartition(record.topic(), record.partition());
+                    OffsetAndMetadata offset = new OffsetAndMetadata(record.offset() + 1);
+                    consumer.commitSync(Collections.singletonMap(partition, offset));
 
-                Map<TopicPartition, OffsetAndMetadata> currentOffsets = new HashMap<>();
-                for (TopicPartition partition : records.partitions()) {
-                    List<ConsumerRecord<String, SensorEventAvro>> partitionRecords = records.records(partition);
-                    long lastOffset = partitionRecords.getLast().offset();
-                    currentOffsets.put(partition, new OffsetAndMetadata(lastOffset + 1));
+                    log.debug("Committed offset {} for partition {}", record.offset() + 1, partition);
                 }
-                consumer.commitSync(currentOffsets);
-                log.debug("Committed offsets for {} partitions", currentOffsets.size());
             }
 
         } catch (WakeupException ignored) {
@@ -95,7 +87,6 @@ public class AggregationStarter {
         }
     }
 
-
     private void handleSensorEvent(SensorEventAvro event) {
         log.debug("Processing event: hubId={}, sensorId={}", event.getHubId(), event.getId());
 
@@ -110,7 +101,6 @@ public class AggregationStarter {
             log.debug("Snapshot not changed for hubId={}, sensorId={}", event.getHubId(), event.getId());
         }
     }
-
 
     private Optional<SensorsSnapshotAvro> updateState(SensorEventAvro event) {
         String hubId = event.getHubId();
@@ -129,12 +119,10 @@ public class AggregationStarter {
         SensorStateAvro oldState = snapshot.getSensorsState().get(sensorId);
 
         if (oldState != null) {
-
             if (eventTimestamp.isBefore(oldState.getTimestamp())) {
                 log.debug("Event is older, skipping. sensorId={}", sensorId);
                 return Optional.empty();
             }
-
 
             if (eventTimestamp.equals(oldState.getTimestamp()) &&
                     Objects.equals(oldState.getData(), event.getPayload())) {
@@ -155,15 +143,12 @@ public class AggregationStarter {
 
     private void sendSnapshot(SensorsSnapshotAvro snapshot) {
         try {
-            byte[] key = snapshot.getHubId().getBytes(StandardCharsets.UTF_8);
-            byte[] value = AvroBinarySerializer.toBytes(snapshot);
-
-            ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(
+            ProducerRecord<String, SensorsSnapshotAvro> record = new ProducerRecord<>(
                     kafkaProperties.getSnapshotsTopic(),
                     null,
                     snapshot.getTimestamp().toEpochMilli(),
-                    key,
-                    value
+                    snapshot.getHubId(),
+                    snapshot
             );
 
             producer.send(record, (metadata, exception) -> {

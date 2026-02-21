@@ -1,5 +1,6 @@
 package ru.yandex.practicum.analyzer.processor;
 
+import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -19,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @Component
+@RequiredArgsConstructor
 public class HubEventProcessor implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(HubEventProcessor.class);
@@ -27,14 +29,6 @@ public class HubEventProcessor implements Runnable {
     private final AnalyzerKafkaProperties kafkaProperties;
     private final ScenarioService scenarioService;
 
-    public HubEventProcessor(
-            KafkaConsumer<String, HubEventAvro> consumer,
-            AnalyzerKafkaProperties kafkaProperties,
-            ScenarioService scenarioService) {
-        this.consumer = consumer;
-        this.kafkaProperties = kafkaProperties;
-        this.scenarioService = scenarioService;
-    }
 
     @Override
     public void run() {

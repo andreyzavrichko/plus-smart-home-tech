@@ -1,7 +1,11 @@
 package ru.yandex.practicum.analyzer.model;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
+@Setter
+@Getter
 @Entity
 @Table(name = "actions")
 public class Action {
@@ -26,27 +30,4 @@ public class Action {
         this.value = value;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public ActionType getType() {
-        return type;
-    }
-
-    public void setType(ActionType type) {
-        this.type = type;
-    }
-
-    public Integer getValue() {
-        return value;
-    }
-
-    public void setValue(Integer value) {
-        this.value = value;
-    }
 }

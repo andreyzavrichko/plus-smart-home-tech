@@ -1,4 +1,4 @@
-package ru.yandex.practicum.analyzer.config;
+package ru.yandex.practicum.serialization.config;
 
 import org.apache.avro.Schema;
 import org.apache.avro.io.BinaryDecoder;

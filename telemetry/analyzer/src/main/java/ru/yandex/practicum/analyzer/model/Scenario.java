@@ -1,10 +1,14 @@
 package ru.yandex.practicum.analyzer.model;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.HashMap;
 import java.util.Map;
 
+@Setter
+@Getter
 @Entity
 @Table(name = "scenarios")
 public class Scenario {
@@ -46,43 +50,4 @@ public class Scenario {
         this.name = name;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getHubId() {
-        return hubId;
-    }
-
-    public void setHubId(String hubId) {
-        this.hubId = hubId;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Map<Sensor, Condition> getConditions() {
-        return conditions;
-    }
-
-    public void setConditions(Map<Sensor, Condition> conditions) {
-        this.conditions = conditions;
-    }
-
-    public Map<Sensor, Action> getActions() {
-        return actions;
-    }
-
-    public void setActions(Map<Sensor, Action> actions) {
-        this.actions = actions;
-    }
 }

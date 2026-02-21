@@ -49,7 +49,7 @@ public class ScenarioService {
             return;
         }
 
-        sensorRepository.deleteById(sensorId);
+        sensorRepository.delete(sensor.get());
         log.info("Sensor removed: id={}, hubId={}", sensorId, hubId);
     }
 
