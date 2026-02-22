@@ -33,3 +33,20 @@ services:
                              --partitions 1 --replication-factor 1 --if-not-exists \
                              --bootstrap-server kafka:29092'"
     init: true
+
+  postgres:
+    image: postgres:16
+    container_name: analyzer-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: analyzer_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d analyzer_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
