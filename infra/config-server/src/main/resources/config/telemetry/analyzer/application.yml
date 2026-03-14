@@ -12,7 +12,7 @@ analyzer:
 grpc:
   client:
     hub-router:
-      address: 'discovery:///hub-router'
+      address: 'static://localhost:59090'
       enableKeepAlive: true
       keepAliveWithoutCalls: true
       negotiationType: plaintext
