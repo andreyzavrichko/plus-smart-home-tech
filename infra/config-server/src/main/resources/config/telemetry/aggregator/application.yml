@@ -1,0 +1,21 @@
+aggregator:
+  kafka:
+    bootstrap-servers: "localhost:9092"
+    group-id: "aggregator-group"
+    sensors-topic: "telemetry.sensors.v1"
+    snapshots-topic: "telemetry.snapshots.v1"
+    consumer:
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: ru.yandex.practicum.serialization.config.SensorEventDeserializer
+    producer:
+      acks: "1"
+      linger-ms: 5
+      batch-size: 32768
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: ru.yandex.practicum.serialization.config.SensorsSnapshotSerializer
+
+spring:
+  application:
+    name: aggregator

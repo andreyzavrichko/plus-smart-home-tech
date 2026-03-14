@@ -4,8 +4,8 @@ services:
     hostname: kafka
     container_name: kafka
     ports:
-      - "9092:9092" # for client connections
-      - "9101:9101" # JMX
+      - "9092:9092"
+      - "9101:9101"
     restart: unless-stopped
     environment:
       KAFKA_NODE_ID: 1
@@ -16,12 +16,19 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
       KAFKA_LISTENERS: 'PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092'
       CLUSTER_ID: 'K0EA9p0yEe6MkAAAAkKsEg'
+    healthcheck:
+      test: [ "CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   kafka-init-topics:
     image: confluentinc/confluent-local:7.4.3
     container_name: kafka-init-topics
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     command: "bash -c \
                 'kafka-topics --create --topic telemetry.sensors.v1 \
                              --partitions 1 --replication-factor 1 --if-not-exists \
@@ -45,8 +52,158 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d analyzer_db"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d analyzer_db" ]
       interval: 5s
       timeout: 3s
       retries: 20
 
+  discovery-server:
+    build:
+      context: .
+      dockerfile: infra/discovery-server/Dockerfile
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:8761/actuator/health | grep UP || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  config-server:
+    build:
+      context: .
+      dockerfile: infra/config-server/Dockerfile
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:8888/actuator/health | grep UP || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  collector:
+    build:
+      context: .
+      dockerfile: telemetry/collector/Dockerfile
+    container_name: collector
+    restart: unless-stopped
+    environment:
+      SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      config-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  aggregator:
+    build:
+      context: .
+      dockerfile: telemetry/aggregator/Dockerfile
+    container_name: aggregator
+    restart: unless-stopped
+    environment:
+      SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      config-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  analyzer:
+    build:
+      context: .
+      dockerfile: telemetry/analyzer/Dockerfile
+    container_name: analyzer
+    restart: unless-stopped
+    environment:
+      SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/analyzer_db
+    depends_on:
+      config-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+
+  shopping-store:
+    build:
+      context: .
+      dockerfile: commerce/shopping-store/Dockerfile
+    container_name: shopping-store
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8081
+      SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/analyzer_db
+    depends_on:
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  warehouse:
+    build:
+      context: .
+      dockerfile: commerce/warehouse/Dockerfile
+    container_name: warehouse
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8082
+      SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/analyzer_db
+    depends_on:
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  shopping-cart:
+    build:
+      context: .
+      dockerfile: commerce/shopping-cart/Dockerfile
+    container_name: shopping-cart
+    ports:
+      - "8083:8083"
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8083
+      SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/analyzer_db
+    depends_on:
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
