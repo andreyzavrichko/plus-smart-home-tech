@@ -1,0 +1,40 @@
+server:
+  port: 8082
+
+analyzer:
+  kafka:
+    bootstrap-servers: "localhost:9092"
+    group-id-snapshots: "analyzer-snapshots-group"
+    group-id-hubs: "analyzer-hubs-group"
+    snapshots-topic: "telemetry.snapshots.v1"
+    hubs-topic: "telemetry.hubs.v1"
+
+grpc:
+  client:
+    hub-router:
+      address: 'discovery:///hub-router'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/analyzer_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+logging:
+  level:
+    ru.yandex.practicum.analyzer.processor.HubEventProcessor: DEBUG
