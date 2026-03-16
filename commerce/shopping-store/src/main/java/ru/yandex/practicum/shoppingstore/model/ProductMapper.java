@@ -1,13 +1,12 @@
 package ru.yandex.practicum.shoppingstore.model;
 
+import lombok.experimental.UtilityClass;
 import ru.yandex.practicum.commerce.dto.product.ProductDto;
 
-public final class ProductMapper {
+@UtilityClass
+public class ProductMapper {
 
-    private ProductMapper() {
-    }
-
-    public static ProductDto toDto(Product product) {
+    public ProductDto toDto(Product product) {
         return ProductDto.builder()
                 .productId(product.getProductId())
                 .productName(product.getProductName())
@@ -20,7 +19,7 @@ public final class ProductMapper {
                 .build();
     }
 
-    public static Product toEntity(ProductDto dto) {
+    public Product toEntity(ProductDto dto) {
         return Product.builder()
                 .productId(dto.getProductId())
                 .productName(dto.getProductName())
