@@ -39,3 +39,40 @@ CREATE TABLE IF NOT EXISTS warehouse.warehouse_products
     DEFAULT
     0
 );
+
+CREATE TABLE IF NOT EXISTS warehouse.order_bookings
+(
+    booking_id
+    UUID
+    PRIMARY
+    KEY,
+    order_id
+    UUID
+    NOT
+    NULL
+    UNIQUE,
+    delivery_id
+    UUID
+);
+
+CREATE TABLE IF NOT EXISTS warehouse.order_booking_items
+(
+    booking_id
+    UUID
+    NOT
+    NULL
+    REFERENCES
+    warehouse
+    .
+    order_bookings
+(
+    booking_id
+),
+    product_id UUID NOT NULL,
+    quantity BIGINT NOT NULL,
+    PRIMARY KEY
+(
+    booking_id,
+    product_id
+)
+    );

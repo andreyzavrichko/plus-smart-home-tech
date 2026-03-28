@@ -37,6 +37,18 @@ public class ProductService {
 
     @Transactional
     public ProductDto createProduct(ProductDto dto) {
+        if (dto.getProductId() == null) {
+            dto = ProductDto.builder()
+                    .productId(UUID.randomUUID())
+                    .productName(dto.getProductName())
+                    .description(dto.getDescription())
+                    .imageSrc(dto.getImageSrc())
+                    .quantityState(dto.getQuantityState())
+                    .productState(dto.getProductState())
+                    .productCategory(dto.getProductCategory())
+                    .price(dto.getPrice())
+                    .build();
+        }
         Product saved = productRepository.save(ProductMapper.toEntity(dto));
         return ProductMapper.toDto(saved);
     }

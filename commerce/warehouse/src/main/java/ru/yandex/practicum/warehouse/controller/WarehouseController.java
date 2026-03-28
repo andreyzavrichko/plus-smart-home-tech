@@ -4,11 +4,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.commerce.dto.cart.ShoppingCartDto;
-import ru.yandex.practicum.commerce.dto.warehouse.AddProductToWarehouseRequest;
-import ru.yandex.practicum.commerce.dto.warehouse.AddressDto;
-import ru.yandex.practicum.commerce.dto.warehouse.NewProductInWarehouseRequest;
+import ru.yandex.practicum.commerce.dto.warehouse.*;
 import ru.yandex.practicum.commerce.feign.WarehouseClient;
 import ru.yandex.practicum.warehouse.service.WarehouseService;
+
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/warehouse")
@@ -31,8 +32,7 @@ public class WarehouseController implements WarehouseClient {
 
     @Override
     @PostMapping("/check")
-    public void checkProductQuantityEnoughForShoppingCart(
-            @RequestBody ShoppingCartDto shoppingCart) {
+    public void checkProductQuantityEnoughForShoppingCart(@RequestBody ShoppingCartDto shoppingCart) {
         warehouseService.checkProductQuantityEnoughForShoppingCart(shoppingCart);
     }
 
@@ -40,5 +40,24 @@ public class WarehouseController implements WarehouseClient {
     @GetMapping("/address")
     public AddressDto getWarehouseAddress() {
         return warehouseService.getWarehouseAddress();
+    }
+
+    @Override
+    @PostMapping("/assembly")
+    public BookedProductsDto assemblyProductsForOrder(
+            @Valid @RequestBody AssemblyProductsForOrderRequest request) {
+        return warehouseService.assemblyProductsForOrder(request);
+    }
+
+    @Override
+    @PostMapping("/shipped")
+    public void shippedToDelivery(@Valid @RequestBody ShippedToDeliveryRequest request) {
+        warehouseService.shippedToDelivery(request);
+    }
+
+    @Override
+    @PostMapping("/return")
+    public void acceptReturn(@RequestBody Map<UUID, Long> products) {
+        warehouseService.acceptReturn(products);
     }
 }

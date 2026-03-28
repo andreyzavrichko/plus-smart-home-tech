@@ -93,6 +93,29 @@ services:
       retries: 10
       start_period: 30s
 
+  gateway:
+    build:
+      context: .
+      dockerfile: infra/gateway/Dockerfile
+    container_name: gateway
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8080
+      SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      config-server:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep UP || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   collector:
     build:
       context: .
@@ -198,6 +221,66 @@ services:
     restart: unless-stopped
     environment:
       SERVER_PORT: 8083
+      SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/analyzer_db
+    depends_on:
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  order:
+    build:
+      context: .
+      dockerfile: commerce/order/Dockerfile
+    container_name: order
+    ports:
+      - "8084:8084"
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8084
+      SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/analyzer_db
+    depends_on:
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  payment:
+    build:
+      context: .
+      dockerfile: commerce/payment/Dockerfile
+    container_name: payment
+    ports:
+      - "8085:8085"
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8085
+      SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/analyzer_db
+    depends_on:
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  delivery:
+    build:
+      context: .
+      dockerfile: commerce/delivery/Dockerfile
+    container_name: delivery
+    ports:
+      - "8086:8086"
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8086
       SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED: "false"
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
