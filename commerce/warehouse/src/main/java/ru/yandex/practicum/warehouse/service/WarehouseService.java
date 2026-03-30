@@ -27,8 +27,6 @@ public class WarehouseService {
     private final WarehouseProductRepository repository;
     private final OrderBookingRepository bookingRepository;
 
-    // ─── существующие методы ──────────────────────────────────────────────────
-
     @Transactional
     public void newProductInWarehouse(NewProductInWarehouseRequest request) {
         if (repository.existsById(request.getProductId())) {
@@ -115,14 +113,13 @@ public class WarehouseService {
                                 + " (запрошено: " + qty
                                 + ", доступно: " + wp.getQuantity() + ")");
             }
-
             wp.setQuantity(wp.getQuantity() - qty);
-            repository.save(wp);
-
             totalWeight += wp.getWeight() * qty;
             totalVolume += wp.getWidth() * wp.getHeight() * wp.getDepth() * qty;
             if (wp.isFragile()) hasFragile = true;
         }
+
+        repository.saveAll(warehouseProducts);
 
         OrderBooking booking = OrderBooking.builder()
                 .orderId(request.getOrderId())
@@ -137,7 +134,6 @@ public class WarehouseService {
                 .build();
     }
 
-
     @Transactional
     public void shippedToDelivery(ShippedToDeliveryRequest request) {
         OrderBooking booking = bookingRepository.findByOrderId(request.getOrderId())
@@ -147,17 +143,14 @@ public class WarehouseService {
         bookingRepository.save(booking);
     }
 
-
     @Transactional
     public void acceptReturn(Map<UUID, Long> returning) {
         List<WarehouseProduct> warehouseProducts = repository.findAllById(returning.keySet());
         for (WarehouseProduct wp : warehouseProducts) {
-            long qty = returning.get(wp.getProductId());
-            wp.setQuantity(wp.getQuantity() + qty);
-            repository.save(wp);
+            wp.setQuantity(wp.getQuantity() + returning.get(wp.getProductId()));
         }
+        repository.saveAll(warehouseProducts);
     }
-
 
     private WarehouseProduct findProductOrThrow(UUID productId) {
         return repository.findById(productId)

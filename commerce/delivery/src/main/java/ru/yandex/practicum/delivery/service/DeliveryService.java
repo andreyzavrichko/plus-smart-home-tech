@@ -24,10 +24,16 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DeliveryService {
 
+    private static final BigDecimal BASE_RATE        = new BigDecimal("5.0");
+    private static final BigDecimal ADDRESS_2_FACTOR = new BigDecimal("2");
+    private static final BigDecimal FRAGILE_FACTOR   = new BigDecimal("0.2");
+    private static final BigDecimal WEIGHT_FACTOR    = new BigDecimal("0.3");
+    private static final BigDecimal VOLUME_FACTOR    = new BigDecimal("0.2");
+    private static final BigDecimal DISTANCE_FACTOR  = new BigDecimal("0.2");
+
     private final DeliveryRepository deliveryRepository;
     private final OrderClient orderClient;
     private final WarehouseClient warehouseClient;
-
 
     @Transactional
     public DeliveryDto planDelivery(DeliveryDto dto) {
@@ -38,43 +44,59 @@ public class DeliveryService {
         delivery.setFromAddress(dto.getFromAddress());
         delivery.setToAddress(dto.getToAddress());
         Delivery saved = deliveryRepository.save(delivery);
+        log.info("Доставка создана: deliveryId={}, orderId={}", saved.getDeliveryId(), saved.getOrderId());
         return toDto(saved);
     }
 
-
     public BigDecimal deliveryCost(OrderDto order) {
+        UUID orderId = order.getOrderId();
         AddressDto warehouse = warehouseClient.getWarehouseAddress();
 
-
-        Delivery delivery = deliveryRepository.findByOrderId(order.getOrderId())
+        Delivery delivery = deliveryRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new NoDeliveryFoundException(
-                        "Доставка не найдена для заказа: " + order.getOrderId()));
+                        "Доставка не найдена для заказа: " + orderId));
 
-        double base = 5.0;
+        log.info("[deliveryCost] orderId={} | склад={} | адрес доставки={} | вес={} | объём={} | хрупкий={}",
+                orderId, warehouse.getCountry(),
+                delivery.getToStreet(),
+                order.getDeliveryWeight(), order.getDeliveryVolume(), order.isFragile());
 
-        double cost = warehouse.getCountry().contains("ADDRESS_2") ? base * 2 : base;
+        BigDecimal cost = warehouse.getCountry().contains("ADDRESS_2")
+                ? BASE_RATE.multiply(ADDRESS_2_FACTOR)
+                : BASE_RATE;
+        log.info("[deliveryCost] orderId={} | после адреса склада: {}", orderId, cost);
 
-        cost += base;
+        cost = cost.add(BASE_RATE);
+        log.info("[deliveryCost] orderId={} | после +base: {}", orderId, cost);
 
         if (order.isFragile()) {
-            cost += cost * 0.2;
+            cost = cost.add(cost.multiply(FRAGILE_FACTOR));
+            log.info("[deliveryCost] orderId={} | после хрупкости: {}", orderId, cost);
         }
 
-        double weight = order.getDeliveryWeight() != null ? order.getDeliveryWeight() : 0.0;
-        cost += weight * 0.3;
+        BigDecimal weight = order.getDeliveryWeight() != null
+                ? BigDecimal.valueOf(order.getDeliveryWeight())
+                : BigDecimal.ZERO;
+        cost = cost.add(weight.multiply(WEIGHT_FACTOR));
+        log.info("[deliveryCost] orderId={} | после веса ({}*0.3): {}", orderId, weight, cost);
 
-        double volume = order.getDeliveryVolume() != null ? order.getDeliveryVolume() : 0.0;
-        cost += volume * 0.2;
+        BigDecimal volume = order.getDeliveryVolume() != null
+                ? BigDecimal.valueOf(order.getDeliveryVolume())
+                : BigDecimal.ZERO;
+        cost = cost.add(volume.multiply(VOLUME_FACTOR));
+        log.info("[deliveryCost] orderId={} | после объёма ({}*0.2): {}", orderId, volume, cost);
 
         String warehouseStreet = warehouse.getStreet();
-        String deliveryStreet = delivery.getToStreet();
+        String deliveryStreet  = delivery.getToStreet();
         if (warehouseStreet == null || !warehouseStreet.equalsIgnoreCase(deliveryStreet)) {
-            cost += cost * 0.2;
+            cost = cost.add(cost.multiply(DISTANCE_FACTOR));
+            log.info("[deliveryCost] orderId={} | после расстояния (+20%): {}", orderId, cost);
         }
 
-        return BigDecimal.valueOf(cost).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal result = cost.setScale(2, RoundingMode.HALF_UP);
+        log.info("[deliveryCost] orderId={} | итого: {}", orderId, result);
+        return result;
     }
-
 
     @Transactional
     public void deliveryPicked(UUID orderId) {
@@ -92,7 +114,6 @@ public class DeliveryService {
         log.info("Доставка {} взята в работу, orderId={}", delivery.getDeliveryId(), orderId);
     }
 
-
     @Transactional
     public void deliverySuccessful(UUID orderId) {
         Delivery delivery = findByOrderOrThrow(orderId);
@@ -102,7 +123,6 @@ public class DeliveryService {
         log.info("Доставка {} завершена успешно, orderId={}", delivery.getDeliveryId(), orderId);
     }
 
-
     @Transactional
     public void deliveryFailed(UUID orderId) {
         Delivery delivery = findByOrderOrThrow(orderId);
@@ -111,7 +131,6 @@ public class DeliveryService {
         orderClient.deliveryFailed(orderId);
         log.info("Доставка {} провалена, orderId={}", delivery.getDeliveryId(), orderId);
     }
-
 
     private Delivery findByOrderOrThrow(UUID orderId) {
         return deliveryRepository.findByOrderId(orderId)
