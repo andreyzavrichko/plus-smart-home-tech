@@ -1,14 +1,12 @@
 package ru.yandex.practicum.commerce.feign;
 
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.commerce.dto.cart.ShoppingCartDto;
-import ru.yandex.practicum.commerce.dto.warehouse.AddProductToWarehouseRequest;
-import ru.yandex.practicum.commerce.dto.warehouse.AddressDto;
-import ru.yandex.practicum.commerce.dto.warehouse.NewProductInWarehouseRequest;
+import ru.yandex.practicum.commerce.dto.warehouse.*;
+
+import java.util.Map;
+import java.util.UUID;
 
 @FeignClient(name = "warehouse", path = "/api/v1/warehouse")
 public interface WarehouseClient {
@@ -24,4 +22,14 @@ public interface WarehouseClient {
 
     @GetMapping("/address")
     AddressDto getWarehouseAddress();
+
+    @PostMapping("/assembly")
+    BookedProductsDto assemblyProductsForOrder(@RequestBody AssemblyProductsForOrderRequest request);
+
+    @PostMapping("/shipped")
+    void shippedToDelivery(@RequestBody ShippedToDeliveryRequest request);
+
+    // Spec: body = Map<UUID, Long> (productId → quantity)
+    @PostMapping("/return")
+    void acceptReturn(@RequestBody Map<UUID, Long> products);
 }
